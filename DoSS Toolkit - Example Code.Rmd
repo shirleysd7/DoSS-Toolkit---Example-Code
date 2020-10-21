@@ -1,0 +1,69 @@
+---
+title: "DoSS Toolkit - Example Code"
+author: "Shirley Deng"
+date: '2020-10-21'
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+## cansim Package
+
+```{r, message=F, warning=F}
+
+# download data
+library(cansim)
+library(tidyverse)
+# student number: 1002358361
+# industry: accommodation and food services
+# unadjusted: v2057828
+# seasonally adjusted: v2057619
+# trend-cycle: v123355122
+# time period: Jan 2000 to Dec 2019
+ua = get_cansim_vector("v2057828", start_time="2000-01-01", 
+                       end_time="2019-12-01") %>%
+  pull(VALUE) %>% ts(start=c(2000, 1), frequency=12)
+
+ua_ma = stats::filter(ua, rep(1/12,12), side = 1 )
+
+# detrended series
+de_ua = ua / ua_ma
+# convert to matrix
+de_ua_mat = t(matrix(de_ua, nrow=12))
+# take sample means for each month
+seasonal = colMeans(de_ua_mat, na.rm=T)
+# centre at 1
+seasonal = ts(rep(seasonal/mean(seasonal), 20), start=c(2000,1), frequency = 12)
+
+adj = get_cansim_vector("v2057619", start_time="2000-01-01", 
+                       end_time="2019-12-01") %>%
+  pull(VALUE) %>% ts(start=c(2000, 1), frequency=12)
+plot(adj, col="#e6ab02", main="Seasonally Adjusted Series", 
+     ylab="adjusted")
+mine = ua/seasonal
+lines(mine, col="#7570b3")
+legend("topleft", legend=c("StatCan's X-12-ARIMA", "Mine"), 
+       col=c("#e6ab02", "#7570b3"), lty=1, cex=0.8)
+```
+
+
+## tidyverse Package
+
+```{r, message=FALSE}
+library(opendatatoronto)
+library(visdat)
+library(skimr)
+
+shelter_occupancy_stats <- get_resource("5097e562-9ee0-41d2-bfd7-86878cf8fbcd")
+
+march5_stats <- shelter_occupancy_stats %>% 
+  filter(OCCUPANCY_DATE == "2020-03-25T00:00:00")
+
+capacity_distn <- march5_stats %>%
+  ggplot(aes(x = CAPACITY)) +
+  geom_histogram(binwidth = 10, color = "#7570b3", fill = "#7570b3") +
+  ggtitle("Shelter Capacities") +
+  xlab("Capacity") + ylab("Count")
+
+capacity_distn
+```
